@@ -1,0 +1,17 @@
+[project]
+name = "attribution-mcp"
+version = "0.1.0"
+description = "POC MCP server exposing mock attribution model data + methodology to Claude"
+authors = [
+    {name = "Leon Brochmann",email = "leon.brochmann@emma-sleep.com"}
+]
+readme = "README.md"
+requires-python = "^3.10"
+dependencies = [
+    "mcp[cli] (>=1.28.1,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
