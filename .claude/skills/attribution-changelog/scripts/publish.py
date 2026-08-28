@@ -15,6 +15,8 @@ page itself; a human sends it to Teams manually.
 import argparse
 import sys
 
+import yaml
+
 from changelog_common import (
     ConfluenceClient,
     build_labels,
@@ -37,7 +39,11 @@ def main():
 
     raw = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
     yaml_text = extract_yaml_block(raw) or raw
-    entry = parse_entry(yaml_text)
+    try:
+        entry = parse_entry(yaml_text)
+    except (ValueError, yaml.YAMLError):
+        print("No changelog entry found in this input — nothing to publish.")
+        return
 
     errors = validate_entry(entry)
     if errors:
