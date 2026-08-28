@@ -1,0 +1,70 @@
+name: Changelog publish
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (leave blank to auto-increment)"
+        required: false
+      effective_date:
+        required: true
+      severity:
+        description: "major | minor | patch"
+        required: true
+      restates_history:
+        description: "true | false"
+        required: true
+      restated_back_to:
+        description: "Required if restates_history is true"
+        required: false
+      summary:
+        required: true
+      action_required:
+        required: false
+      owner:
+        required: true
+      reviewer:
+        required: true
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    environment: attribution-changelog-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+
+      - name: Assemble entry from PR body
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" > entry.md
+
+      - name: Assemble entry from manual dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+          EFFECTIVE_DATE: ${{ inputs.effective_date }}
+          SEVERITY: ${{ inputs.severity }}
+          RESTATES_HISTORY: ${{ inputs.restates_history }}
+          RESTATED_BACK_TO: ${{ inputs.restated_back_to }}
+          SUMMARY: ${{ inputs.summary }}
+          ACTION_REQUIRED: ${{ inputs.action_required }}
+          OWNER: ${{ inputs.owner }}
+          REVIEWER: ${{ inputs.reviewer }}
+        run: python .claude/skills/attribution-changelog/scripts/assemble_dispatch_entry.py > entry.md
+
+      - name: Publish changelog entry
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_ID: ${{ secrets.CONFLUENCE_SPACE_ID }}
+          CONFLUENCE_FOLDER_ID: ${{ secrets.CONFLUENCE_FOLDER_ID }}
+        run: python .claude/skills/attribution-changelog/scripts/publish.py --input entry.md
