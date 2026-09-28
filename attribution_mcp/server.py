@@ -13,7 +13,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 DATA_DIR = Path(__file__).parent / "data"
-DOC_PATH = Path(__file__).parent.parent / "attribution_model_documentation.md"
+DOC_PATH = Path(__file__).parent.parent / "Plans" / "attribution_model_documentation.md"
 
 mcp = FastMCP("attribution-poc")
 
@@ -23,10 +23,15 @@ def _load_table(name: str) -> list[dict]:
     return json.loads(path.read_text())
 
 
+def _norm(value):
+    """Case-fold and trim strings so filter matching is case/whitespace-insensitive."""
+    return value.strip().lower() if isinstance(value, str) else value
+
+
 def _filter_rows(rows: list[dict], filters: dict) -> list[dict]:
     result = []
     for row in rows:
-        if all(row.get(k) == v for k, v in filters.items() if v is not None):
+        if all(_norm(row.get(k)) == _norm(v) for k, v in filters.items() if v is not None):
             result.append(row)
     return result
 
@@ -56,7 +61,7 @@ def query_touchpoints(
         "rank": rank,
     }
     if date is not None:
-        rows = [r for r in rows if r["attribution_timestamp"].startswith(date)]
+        rows = [r for r in rows if r["attribution_timestamp"].startswith(date.strip())]
     return _filter_rows(rows, filters)[:limit]
 
 

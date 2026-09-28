@@ -68,7 +68,11 @@ Step 6 (log gaps and iterate) is ongoing — gaps found so far:
 - Guardrail wording needed multiple rounds before behavior was reliable (e.g. a strategic question triggering an unnecessary tool call; the out-of-scope redirect not catching "link to Jira"-style asks; non-technical audience needing shorter answers than an engineer would expect). Guardrails are not a one-shot fix — they need repeated adversarial testing, not just a single pass.
 - Only 3 of 7 real output tables are covered — not yet known how often real usage would need the other 4 (`refactored_total_orders_prod`, `staging_scaling_factors_prod`, `refactored_paid_social_prod`, `refactored_attribution_metrics_prod`).
 
-## Next steps (in priority order, decided 2026-07-03)
+## Next steps (as of 2026-07-03)
+
+See `poc_maturity_and_redshift_plan.md` for the active, up-to-date execution
+plan (POC hardening + attribution documentation + Redshift cutover). The list
+below is kept for history.
 
 1. **Harden guardrails + fix data bugs first.** Batch-test adversarial/edge-case questions against `CLAUDE.md` (ambiguous scope, chained follow-ups, prompt-injection-style asks) rather than one-off manual testing. Fix channel-value case-sensitivity and add input normalization to the query tools so non-technical users don't get silent empty results.
 2. **Then start the parallel Redshift-access track** (see table above — ownership, read-only role, auth method, network path, sign-off, credential storage, standalone connection test). This is what unblocks moving off mock data.
