@@ -1,0 +1,25 @@
+name: Changelog coverage
+
+on:
+  schedule:
+    - cron: "0 7 1 * *"   # monthly
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    environment: attribution-changelog-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+      - name: Report entries by source
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_ID: ${{ secrets.CONFLUENCE_SPACE_ID }}
+          CONFLUENCE_FOLDER_ID: ${{ secrets.CONFLUENCE_FOLDER_ID }}
+        run: python .claude/skills/attribution-changelog/scripts/coverage_report.py >> "$GITHUB_STEP_SUMMARY"
