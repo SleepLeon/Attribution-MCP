@@ -7,7 +7,7 @@ Usage: validate.py --input <path-to-pr-body-file>   (or --input - for stdin)
 import argparse
 import sys
 
-from changelog_common import extract_yaml_block, parse_entry, validate_entry
+from changelog_common import extract_yaml_block, impact_warnings, parse_entry, validate_entry
 
 
 def main():
@@ -28,12 +28,19 @@ def main():
         print(f"Could not parse changelog YAML block: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if entry.get("no_model_change") is True:
+        print("Changelog entry skipped: PR declares no_model_change (no attribution model change).")
+        return
+
     errors = validate_entry(entry)
     if errors:
         print("Changelog entry failed validation:", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         sys.exit(1)
+
+    for warning in impact_warnings(entry):
+        print(f"warning: {warning}", file=sys.stderr)
 
     print(f"Changelog entry OK (version={entry.get('version') or 'auto'}, severity={entry['severity']})")
 
