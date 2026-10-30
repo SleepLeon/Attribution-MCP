@@ -13,6 +13,7 @@ page itself; a human sends it to Teams manually.
 """
 
 import argparse
+import os
 import sys
 
 import yaml
@@ -24,6 +25,7 @@ from changelog_common import (
     bump_version,
     extract_yaml_block,
     find_existing_page,
+    impact_warnings,
     parse_entry,
     render_page_body,
     resolve_latest_version,
@@ -52,6 +54,12 @@ def main():
             print(f"  - {error}", file=sys.stderr)
         sys.exit(1)
 
+    for warning in impact_warnings(entry):
+        print(f"warning: {warning}", file=sys.stderr)
+
+    if os.environ.get("PR_NUMBER"):
+        entry["pr_number"] = os.environ["PR_NUMBER"]
+
     if args.dry_run:
         entry.setdefault("version", "0.0.0-dryrun")
         print(render_page_body(entry, page_url="(dry run — no page created)"))
@@ -59,11 +67,18 @@ def main():
 
     client = ConfluenceClient()
 
+    # Check by PR number before resolving the version, so a re-run of a PR whose version
+    # was auto-bumped doesn't mint a second page under a newer version.
+    existing = find_existing_page(client, entry.get("version"), entry.get("pr_number"))
+    if existing:
+        print(f"Entry already exists (page {existing['id']}) — skipping.")
+        return
+
     if not entry.get("version"):
         latest = resolve_latest_version(client)
         entry["version"] = bump_version(latest, entry["severity"]) if latest else "1.0.0"
 
-    existing = find_existing_page(client, entry["version"])
+    existing = find_existing_page(client, entry["version"], entry.get("pr_number"))
     if existing:
         print(f"Entry for v{entry['version']} already exists (page {existing['id']}) — skipping.")
         return

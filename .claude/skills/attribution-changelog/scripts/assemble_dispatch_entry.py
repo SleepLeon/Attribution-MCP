@@ -10,6 +10,8 @@ import sys
 
 import yaml
 
+from changelog_common import parse_impact_text, parse_list_text
+
 
 def env(name):
     return os.environ.get(name, "")
@@ -30,6 +32,10 @@ def main():
         "owner": env("OWNER"),
         "reviewer": env("REVIEWER"),
         "restated_back_to": env("RESTATED_BACK_TO") or None,
+        "impact": parse_impact_text(env("IMPACT")) or None,
+        "expected_effect": env("EXPECTED_EFFECT") or None,
+        "period_compared": env("PERIOD_COMPARED") or None,
+        "downstream": parse_list_text(env("DOWNSTREAM")) or None,
         "action_required": env("ACTION_REQUIRED") or None,
     }
     entry = {key: value for key, value in entry.items() if value is not None}

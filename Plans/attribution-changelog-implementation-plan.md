@@ -19,6 +19,9 @@ Two entry paths: automatic on merge for changes that go through the repo, and ma
 | Skill count | **One** skill, two entry paths | The judgment work is identical; only the input source differs. |
 | Manual entry | **Conversational**, form as fallback | Forms produce worse impact estimates than dialogue. |
 | Manual publishing | Skill fires `gh workflow run`; script runs **in CI** | Keeps credentials in one place, gives every entry a run log. |
+| Teams alert | **No webhook for now.** A draft message is rendered on each Confluence page; a human sends it | Dropped the webhook (decided 2026-10-30). Revisit if a stakeholder channel and webhook owner are agreed. |
+| Impact | `expected_effect` + per-channel `impact` (with `basis` measured/estimated, optional before/after, confidence, note) required for `major`; warned if missing otherwise | The most valuable field and the easiest to skip. Recording *how* a number was obtained stops estimates passing as measurements. |
+| Idempotency | Keyed on `pr-{number}` label, falling back to version | Re-runs of an auto-bumped PR can't mint duplicate pages. |
 
 ---
 
@@ -32,7 +35,7 @@ PR opened ──> validate (schema check, required)
                    ▼
             publish.py ──> Confluence page ──> move into folder ──> labels
                    │
-                   └────> Teams webhook
+                   └────> Teams draft on page (sent manually)
 
 Manual ──> skill (conversational) ──> gh workflow run ──> publish.py ──> same
 ```
@@ -138,9 +141,9 @@ Single entry point used by both workflows. Takes the parsed block as input.
 4. `POST /wiki/api/v2/pages` — create in the space.
 5. v1 move endpoint — relocate into the folder.
 6. Apply labels.
-7. `POST` Teams webhook.
+7. ~~`POST` Teams webhook~~ — dropped for now. The draft message is part of the page body (step 3).
 
-**Teams card contents** — deliberately short. Version, one-line summary, severity, whether history was restated, and the page link. The changelog holds the detail; the alert is a pointer.
+**Teams draft contents** — deliberately short. Version, one-line summary, severity, whether history was restated, one-line impact, and the page link. The changelog holds the detail; the alert is a pointer.
 
 Build and test this against a scratch folder before wiring any workflow to it.
 
@@ -194,7 +197,7 @@ Using `pull_request: closed` rather than `push` means the PR body is handed to y
 | `CONFLUENCE_API_TOKEN` | publish |
 | `CONFLUENCE_SPACE_ID` | publish |
 | `CONFLUENCE_FOLDER_ID` | publish |
-| `TEAMS_WEBHOOK_URL` | publish |
+| ~~`TEAMS_WEBHOOK_URL`~~ | not used — webhook dropped |
 | `ANTHROPIC_API_KEY` | only if auto-drafting in CI is added later |
 
 Consider putting these in a GitHub environment with required reviewers if you want a human gate before anything posts.
@@ -212,11 +215,22 @@ Consider putting these in a GitHub environment with required reviewers if you wa
 
 ---
 
+## Status (2026-10-30)
+
+Built: validate + publish workflows, `publish.py`, schema, PR template, skill, `CODEOWNERS`, `impact`/`downstream` fields (page table, `channel-*` labels, dispatch inputs), PR-keyed idempotency, monthly coverage report (`changelog-coverage.yml`).
+
+Still to do / verify:
+- **Confirm the two Confluence API constraints** (folder `parentId` 500; no folder-children API). `move_into_folder` is untested against current Cloud behaviour.
+- **Branch protection:** confirm `changelog-validate` is a *required* check — not verifiable from code.
+- **Path filter:** `changelog-validate.yml` runs on every PR with no path filter, so any PR without a block goes red. Add a `paths:` filter once model directories are known.
+- **Dry-run end to end** against a scratch folder before the first real publish.
+- Backfill past model changes as entries (optional).
+
 ## Known gaps
 
-**Coverage.** Only repo-borne changes are captured automatically. UI retunes, spreadsheet channel mappings, and upstream platform changes need the manual path. If manual entries stop happening, the changelog quietly becomes incomplete and people stop trusting it — worth reviewing the `source-manual` label count periodically.
+**Coverage.** Only repo-borne changes are captured automatically. UI retunes, spreadsheet channel mappings, and upstream platform changes need the manual path. If manual entries stop happening, the changelog quietly becomes incomplete and people stop trusting it — mitigated by the monthly `changelog-coverage.yml` report and a PR-template checkbox ("this PR is only part of a model change").
 
-**Batching.** Two merges close together produce two entries and two Teams pings. Acceptable at low merge frequency. If the repo sees several model merges a week, revisit and consider tag-driven publishing instead.
+**Batching.** Two merges close together produce two entries and two Teams drafts to send. Acceptable at low merge frequency. If the repo sees several model merges a week, revisit and consider tag-driven publishing instead.
 
 **The impact estimate.** The most valuable field and the easiest to skip. The skill exists largely to reduce that friction, but no automation can supply the judgment — someone has to actually think about which channels move.
 
@@ -226,5 +240,5 @@ Consider putting these in a GitHub environment with required reviewers if you wa
 
 1. **Confluence Cloud or Server/Data Center?** Determines folder vs parent page, and which API surface the script targets.
 2. **Which space** does the folder live in?
-3. **Teams routing** — one channel for everything, or severity-based (major to a broad stakeholder channel, minor and patch to a working channel)?
+3. **Teams routing** — parked with the webhook. If revived: one channel, or severity-based?
 4. **Merge frequency** on the attribution repo — determines whether per-merge entries stay comfortable.

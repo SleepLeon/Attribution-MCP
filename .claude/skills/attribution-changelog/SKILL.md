@@ -33,8 +33,15 @@ gh workflow run changelog-publish.yml \
   -f effective_date=<date> -f severity=<major|minor|patch> \
   -f restates_history=<true|false> -f restated_back_to=<date, if applicable> \
   -f summary="<one line>" -f owner="<name>" -f reviewer="<name>" \
+  -f expected_effect="<what changes and why>" \
+  -f impact="<channel:direction:magnitude:basis[:confidence]; ...>" \
+  -f period_compared="<start..end, if measured>" \
+  -f downstream="<consumer; consumer>" \
   -f action_required="<optional>"
 ```
+
+`impact` is required for `major`. Ask for it channel by channel — see
+"Impact estimate" below.
 
 ## Severity
 
@@ -49,6 +56,39 @@ check, but get it right at draft time:
 - **patch** — bug fix or data correction, little or no material
   movement.
 
+## Impact estimate
+
+The most valuable field and the easiest to skip — don't let it stay blank
+on a major change. Ask: *which channels' attributed numbers move, in which
+direction, roughly how much?* Then: *what reads this output* (dashboards,
+Pigment budget model, bidding rules) → `downstream`.
+
+- Start with `expected_effect`: two or three plain sentences — what moves,
+  roughly how much, and the mechanism (e.g. "a shorter window drops credit
+  from early upper-funnel touches, so paid social gains and affiliate loses").
+  Mechanisms must come from the model's documented methodology
+  (`get_methodology`), not general MTA theory.
+- One item per channel; `direction` is `up`, `down` or `flat`.
+- Record `basis`: `measured` if someone ran a before/after (give
+  `period_compared`, and `before`/`after` values if known), `estimated` if
+  reasoned from the change. Never label an estimate as measured.
+- Add `confidence` and a one-line `note` where it helps a reader trust or
+  question the number.
+- Magnitude as a range or approximation (`"8-12%"`, `"~5%"`), not false precision.
+- Same phrasing across authors: channel names as they appear in the model
+  (`paid_social`, `affiliate`), signed from the *attributed* number's point of view.
+- If you can't estimate it from the diff (path 1) or the user doesn't know
+  (path 2), say so and ask them to run a before/after comparison rather
+  than inventing numbers. The validator requires a magnitude for every
+  item, so a real estimate has to come from a person.
+
+## Severity examples
+
+- **major** — lookback window 30d → 14d; switching the model type; changing how
+  a channel's touchpoints are weighted. `restates_history: true`, `impact` required.
+- **minor** — new channel or touchpoint added; retuning a parameter going forward.
+- **patch** — fixing a mis-mapped campaign; correcting a null-handling bug.
+
 ## Uncertainty handling
 
 If the diff or the description of a manual change doesn't make clear
@@ -60,6 +100,8 @@ past reporting to silently disagree.
 ## Stakeholder message
 
 `publish.py` renders a short draft (version, one-line summary, severity,
-restatement flag, page link) directly onto the Confluence page. Keep the
-`summary` field itself short — it becomes that headline verbatim. There
-is no automatic Teams post; a human sends it manually from the page.
+restatement flag, one-line impact, page link) directly onto the Confluence
+page. Keep the `summary` field itself short — it becomes that headline
+verbatim, and the whole draft should stay a pointer, not a report. There
+is no automatic Teams post (deliberately dropped for now); a human sends it
+manually from the page.

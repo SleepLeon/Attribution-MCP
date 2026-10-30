@@ -26,6 +26,9 @@ REQUIRED_FIELDS = [
 ]
 SEVERITIES = {"major", "minor", "patch"}
 SOURCES = {"merge", "manual"}
+DIRECTIONS = {"up", "down", "flat"}
+BASES = {"measured", "estimated"}
+CONFIDENCES = {"low", "medium", "high"}
 COLLECTION_LABEL = "attribution-changelog"
 
 YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)```", re.DOTALL)
@@ -104,7 +107,91 @@ def validate_entry(entry):
                 "(a methodology change that doesn't restate history is inconsistent)"
             )
 
+    errors.extend(validate_impact(entry))
     return errors
+
+
+def validate_impact(entry):
+    """Check `impact` / `downstream` shape. `impact` is required for severity=major."""
+    errors = []
+    impact = entry.get("impact")
+    if not impact:
+        if entry.get("severity") == "major":
+            errors.append(
+                "impact is required for severity=major — list which channels move, "
+                "in which direction, and roughly how much"
+            )
+    elif not isinstance(impact, list):
+        errors.append("impact must be a list of {channel, direction, magnitude} items")
+    else:
+        for i, item in enumerate(impact, start=1):
+            if not isinstance(item, dict):
+                errors.append(f"impact item {i} must be a mapping")
+                continue
+            if not item.get("channel"):
+                errors.append(f"impact item {i} is missing channel")
+            if item.get("direction") not in DIRECTIONS:
+                errors.append(f"impact item {i}: direction must be one of {sorted(DIRECTIONS)}")
+            if not item.get("magnitude"):
+                errors.append(f"impact item {i} is missing magnitude")
+            if item.get("basis") not in BASES:
+                errors.append(
+                    f"impact item {i}: basis must be one of {sorted(BASES)} "
+                    "(measured = before/after run; estimated = reasoned from the change)"
+                )
+            if item.get("confidence") is not None and item["confidence"] not in CONFIDENCES:
+                errors.append(f"impact item {i}: confidence must be one of {sorted(CONFIDENCES)}")
+
+    if entry.get("severity") == "major" and not entry.get("expected_effect"):
+        errors.append(
+            "expected_effect is required for severity=major — a short plain-language "
+            "description of what will change in the numbers and why"
+        )
+
+    downstream = entry.get("downstream")
+    if downstream is not None and not (
+        isinstance(downstream, list) and all(isinstance(d, str) and d for d in downstream)
+    ):
+        errors.append("downstream must be a list of non-empty strings")
+    return errors
+
+
+def impact_warnings(entry):
+    """Non-blocking nudges: the impact estimate is the field most often skipped."""
+    warnings = []
+    if not entry.get("impact") and entry.get("severity") != "major":
+        warnings.append("no impact listed — if any channel moves, add it (impact is required for major)")
+    if entry.get("impact") and not entry.get("expected_effect"):
+        warnings.append("impact listed but no expected_effect narrative (what changes and why)")
+    if entry.get("impact") and not entry.get("downstream"):
+        warnings.append("impact listed but no downstream consumers (dashboards, budgets, bidding rules)")
+    return warnings
+
+
+def parse_impact_text(text):
+    """Parse the manual-dispatch form: 'channel:direction:magnitude[:basis[:confidence]]; ...'."""
+    items = []
+    for chunk in (text or "").split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        parts = [p.strip() for p in chunk.split(":")]
+        parts += [""] * (5 - len(parts))
+        item = {"channel": parts[0], "direction": parts[1], "magnitude": parts[2], "basis": parts[3]}
+        if parts[4]:
+            item["confidence"] = parts[4]
+        items.append(item)
+    return items
+
+
+def parse_list_text(text):
+    return [part.strip() for part in (text or "").split(";") if part.strip()]
+
+
+def format_impact_item(item):
+    arrow = {"up": "\u2191", "down": "\u2193", "flat": "\u2192"}.get(item.get("direction"), "?")
+    suffix = " (est.)" if item.get("basis") == "estimated" else ""
+    return f"{item.get('channel')} {arrow} {item.get('magnitude')}{suffix}"
 
 
 def bump_version(current, severity):
@@ -128,6 +215,12 @@ def build_labels(entry):
     ]
     if entry.get("restates_history"):
         labels.append("restates-history")
+    for item in entry.get("impact") or []:
+        channel = re.sub(r"[^a-z0-9_-]+", "-", str(item.get("channel", "")).lower()).strip("-")
+        if channel:
+            labels.append(f"channel-{channel}")
+    if entry.get("pr_number"):
+        labels.append(f"pr-{entry['pr_number']}")
     return labels
 
 
@@ -138,6 +231,8 @@ def render_teams_draft_lines(entry, page_url=None):
         f"Severity: {entry['severity']}"
         + (" (history restated)" if entry.get("restates_history") else ""),
     ]
+    if entry.get("impact"):
+        lines.append("Impact: " + ", ".join(format_impact_item(i) for i in entry["impact"]))
     lines.append(f"Details: {page_url}" if page_url else "Details: (link added once the page is created)")
     return lines
 
@@ -164,6 +259,30 @@ def render_page_body(entry, page_url=None):
         parts.append("<p><strong>History restated:</strong> No</p>")
 
     parts.append(f"<h2>Summary</h2><p>{esc(entry['summary'])}</p>")
+
+    if entry.get("expected_effect"):
+        parts.append(f"<h2>Expected effect</h2><p>{esc(entry['expected_effect'])}</p>")
+
+    if entry.get("impact"):
+        rows = "".join(
+            f"<tr><td>{esc(i.get('channel'))}</td><td>{esc(i.get('metric') or 'attributed revenue')}</td>"
+            f"<td>{esc(i.get('direction'))}</td><td>{esc(i.get('magnitude'))}</td>"
+            f"<td>{esc(i.get('before', ''))}</td><td>{esc(i.get('after', ''))}</td>"
+            f"<td>{esc(i.get('basis', ''))}</td><td>{esc(i.get('confidence', ''))}</td>"
+            f"<td>{esc(i.get('note', ''))}</td></tr>"
+            for i in entry["impact"]
+        )
+        parts.append(
+            "<h2>Impact</h2>"
+            + (f"<p><strong>Compared period:</strong> {esc(entry['period_compared'])}</p>" if entry.get("period_compared") else "")
+            + "<table><tbody><tr><th>Channel</th><th>Metric</th><th>Direction</th><th>Magnitude</th>"
+            "<th>Before</th><th>After</th><th>Basis</th><th>Confidence</th><th>Note</th></tr>"
+            f"{rows}</tbody></table>"
+        )
+
+    if entry.get("downstream"):
+        items = "".join(f"<li>{esc(d)}</li>" for d in entry["downstream"])
+        parts.append(f"<h2>Downstream consumers</h2><ul>{items}</ul>")
 
     if entry.get("action_required"):
         parts.append(f"<h2>Action required</h2><p>{esc(entry['action_required'])}</p>")
@@ -259,7 +378,16 @@ def resolve_latest_version(client):
     return match.group(1) if match else None
 
 
-def find_existing_page(client, version):
+def find_existing_page(client, version, pr_number=None):
+    """Idempotency lookup. A PR number (label `pr-N`) is the strongest key: it still matches
+    on a re-run where the version was auto-bumped to something new."""
+    if pr_number:
+        data = client.search_cql(f'label="{COLLECTION_LABEL}" and label="pr-{pr_number}"', limit=1)
+        results = (data or {}).get("results", [])
+        if results:
+            return results[0]
+    if not version:
+        return None
     cql = f'label="{COLLECTION_LABEL}" and title ~ "v{version}"'
     data = client.search_cql(cql, limit=1)
     results = (data or {}).get("results", [])

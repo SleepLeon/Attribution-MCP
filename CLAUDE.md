@@ -104,3 +104,20 @@ smooth them over:
 - If a channel/date/country combination returns no rows, say so plainly
   rather than assuming zero — the mock data is sparse by design and an empty
   result may just mean that combination wasn't generated.
+
+## Redshift (EDM) conventions — for when real-data access lands (Section D/E)
+These tools (`redshift-prod`/`openmetadata-prod` MCP servers) are not part of
+this POC's current mock tool set, but apply the moment real queries happen:
+- Prod cluster: `dataeng-prod-bme-redshift-cluster`; always query the
+  `dataeng_prod_mcp` database, never `dataeng_prod` (the MCP server's IAM
+  role has no access to the latter — permission errors there almost always
+  mean the wrong database was targeted).
+- Dev cluster identifier rotates (typically weekly, date-suffixed) — always
+  discover it via `list_clusters`, never hard-code or reuse one from a prior
+  session. Dev database: `dataeng_dev_mcp`.
+- For any number that overlaps a governed business metric (Contribution
+  Margin, ROAS, CAC, LTV, revenue, AOV, etc.), check `openmetadata-prod` for
+  the canonical definition/SQL first and use it as the base, rather than
+  writing the calculation from scratch — note which definition/environment
+  was used wherever the number is reported.
+- All access is read-only.

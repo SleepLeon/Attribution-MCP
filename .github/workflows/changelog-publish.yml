@@ -21,6 +21,18 @@ on:
         required: false
       summary:
         required: true
+      expected_effect:
+        description: "Plain-language: what changes in the numbers and why. Required for major."
+        required: false
+      impact:
+        description: "Per channel, semicolon-separated: channel:direction:magnitude:basis[:confidence] (e.g. paid_social:up:8-12%:measured:high; affiliate:down:~5%:estimated:low). Required for major."
+        required: false
+      period_compared:
+        description: "Period the before/after was measured over, e.g. 2026-06-01..2026-08-31"
+        required: false
+      downstream:
+        description: "Semicolon-separated consumers (e.g. Marketing dashboard; Pigment budget model)"
+        required: false
       action_required:
         required: false
       owner:
@@ -55,6 +67,10 @@ jobs:
           RESTATES_HISTORY: ${{ inputs.restates_history }}
           RESTATED_BACK_TO: ${{ inputs.restated_back_to }}
           SUMMARY: ${{ inputs.summary }}
+          EXPECTED_EFFECT: ${{ inputs.expected_effect }}
+          IMPACT: ${{ inputs.impact }}
+          PERIOD_COMPARED: ${{ inputs.period_compared }}
+          DOWNSTREAM: ${{ inputs.downstream }}
           ACTION_REQUIRED: ${{ inputs.action_required }}
           OWNER: ${{ inputs.owner }}
           REVIEWER: ${{ inputs.reviewer }}
@@ -67,4 +83,5 @@ jobs:
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_SPACE_ID: ${{ secrets.CONFLUENCE_SPACE_ID }}
           CONFLUENCE_FOLDER_ID: ${{ secrets.CONFLUENCE_FOLDER_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python .claude/skills/attribution-changelog/scripts/publish.py --input entry.md
