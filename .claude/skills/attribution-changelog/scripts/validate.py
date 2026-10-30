@@ -28,6 +28,10 @@ def main():
         print(f"Could not parse changelog YAML block: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if entry.get("no_model_change") is True:
+        print("Changelog entry skipped: PR declares no_model_change (no attribution model change).")
+        return
+
     errors = validate_entry(entry)
     if errors:
         print("Changelog entry failed validation:", file=sys.stderr)

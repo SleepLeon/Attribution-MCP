@@ -6,6 +6,7 @@ Field reference: .claude/skills/attribution-changelog/reference/schema.md
 ## Attribution model changelog entry
 
 ```yaml
+no_model_change:    # set to true if this PR does not change the attribution model, then ignore the rest
 version:            # leave blank to auto-increment
 effective_date:     # YYYY-MM-DD
 severity:           # major | minor | patch

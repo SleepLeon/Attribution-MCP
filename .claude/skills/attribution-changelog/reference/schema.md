@@ -36,6 +36,7 @@ reviewer: <name>
 
 | Field | Required | Notes |
 |---|---|---|
+| `no_model_change` | No | Set `true` when a PR doesn't change the attribution model (tooling, docs, tests). Validation passes and nothing is published; every other field is ignored. Only for PRs — manual entries are by definition model changes. |
 | `version` | No | Auto-incremented (semver) from the latest published entry if omitted. |
 | `effective_date` | Yes | ISO date. |
 | `severity` | Yes | `major` \| `minor` \| `patch`. Must agree with `restates_history` (see below). |

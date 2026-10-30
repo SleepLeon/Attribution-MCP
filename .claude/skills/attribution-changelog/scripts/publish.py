@@ -47,6 +47,10 @@ def main():
         print("No changelog entry found in this input — nothing to publish.")
         return
 
+    if entry.get("no_model_change") is True:
+        print("PR declares no_model_change — nothing to publish.")
+        return
+
     errors = validate_entry(entry)
     if errors:
         print("Changelog entry failed validation:", file=sys.stderr)

@@ -68,6 +68,9 @@ def validate_entry(entry):
     """
     errors = []
 
+    if entry.get("no_model_change") is True:
+        return errors
+
     for field in REQUIRED_FIELDS:
         if field == "version":
             continue
